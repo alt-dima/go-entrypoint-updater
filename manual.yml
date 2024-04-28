@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app.kubernetes.io/component: entrypoint-updater
+    app.kubernetes.io/managed-by: asu
+    app.kubernetes.io/name: entrypoint-updater
+    app.kubernetes.io/part-of: entrypoint-updater
+  name: asu-entrypoint
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: entrypoint-updater
+      app.kubernetes.io/managed-by: asu
+      app.kubernetes.io/name: entrypoint-updater
+      app.kubernetes.io/part-of: entrypoint-updater
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: entrypoint-updater
+        app.kubernetes.io/managed-by: asu
+        app.kubernetes.io/name: entrypoint-updater
+        app.kubernetes.io/part-of: entrypoint-updater
+        sidecar.istio.io/inject: "false"
+    spec:
+      containers:
+      - args:
+        - aws s3 cp s3://infra-binaries/entrypoint/entrypoint /entrypoint/entrypoint; chmod +x /entrypoint/entrypoint; /entrypoint/entrypoint aws; sleep 900;
+        command:
+          - sh
+          - -c
+        image: public.ecr.aws/aws-cli/aws-cli:latest
+        name: awscli
+        resources:
+          limits:
+            cpu: "1"
+            memory: 2000Mi
+          requests:
+            cpu: 50m
+            memory: 200Mi
+        volumeMounts:
+          - mountPath: /entrypoint
+            mountPropagation: None
+            name: entrypoint
+            readOnly: false
+      enableServiceLinks: false
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: WorkloadType
+                operator: In
+                values:
+                - application
+      priorityClassName: system-cluster-critical
+      volumes:
+        - hostPath:
+            path: /entrypoint
+            type: ""
+          name: entrypoint
